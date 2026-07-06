@@ -40,5 +40,14 @@ services:
       redis:
         condition: service_healthy
 
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "8848:80"
+    depends_on:
+      - app
+
 volumes:
   mysql_data:

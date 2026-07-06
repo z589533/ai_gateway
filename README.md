@@ -9,6 +9,7 @@ Go + Gin + GORM + MySQL + Redis implementation of an AI Gateway MVP. It manages 
 - MySQL: stores tenants, API keys, and usage records.
 - Redis: caches API key auth metadata for 5 minutes by default.
 - Mock proxy: returns OpenAI-compatible JSON and estimated token usage without external network calls.
+- Admin console: static HTML/CSS/JS dashboard served by nginx on port `8848`.
 
 ## Quick Start
 
@@ -17,12 +18,24 @@ docker compose up --build
 ```
 
 The API listens on `http://localhost:8080`.
+The admin console listens on `http://localhost:8848`.
 
 Health check:
 
 ```bash
 curl -s http://localhost:8080/health
 ```
+
+Open the dashboard:
+
+```text
+http://localhost:8848
+```
+
+Default dashboard settings:
+
+- API Base: blank when served by compose, because nginx proxies `/api` and `/v1` to the backend.
+- Admin Token: `admin-dev-token`.
 
 ## Configuration
 
@@ -104,6 +117,7 @@ OpenAPI 3.0.3 spec:
 ```bash
 go test ./...
 go test ./... -cover
+cd web && npm test
 ```
 
 ## Design Decisions
@@ -115,6 +129,7 @@ go test ./... -cover
 - Token usage: estimated from message character count and mock completion size.
 - Errors: OpenAI-compatible error body for data API; management API uses `{code,message,data}` envelope.
 - Rate limiting: sentinel-golang in-process rules, suitable for single-instance MVP.
+- Admin console: zero-build static UI with nginx reverse proxy, keeping compose startup simple.
 
 ## Known Limits
 
@@ -123,4 +138,4 @@ go test ./... -cover
 - Token counts are approximate.
 - Rate limits are process-local and not shared across replicas.
 - Management API uses one static token, not RBAC.
-- Dashboard is intentionally left as P1 optional per the technical design.
+- Admin console stores the admin token in browser localStorage for demo/internal use only.

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Gateway Admin</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <div class="brand">
+          <div class="brand-mark">AG</div>
+          <div>
+            <strong>AI Gateway</strong>
+            <span>Admin Console</span>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="overview" type="button">概览</button>
+          <button class="nav-item" data-view="tenants" type="button">租户管理</button>
+          <button class="nav-item" data-view="keys" type="button">API Key</button>
+          <button class="nav-item" data-view="usage" type="button">用量统计</button>
+          <button class="nav-item" data-view="playground" type="button">代理测试</button>
+        </nav>
+        <div class="sidebar-footer">
+          <span class="status-dot" id="healthDot"></span>
+          <span id="healthText">checking</span>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Mock LLM Gateway</p>
+            <h1 id="viewTitle">概览</h1>
+          </div>
+          <div class="settings">
+            <label>
+              API Base
+              <input id="apiBaseInput" type="text" autocomplete="off" />
+            </label>
+            <label>
+              Admin Token
+              <input id="adminTokenInput" type="password" autocomplete="off" />
+            </label>
+            <button id="saveSettingsBtn" class="button secondary" type="button">保存</button>
+          </div>
+        </header>
+
+        <section id="alertHost" class="alert-host" aria-live="polite"></section>
+
+        <section id="overviewView" class="view active">
+          <div class="metric-grid">
+            <article class="metric">
+              <span>租户</span>
+              <strong id="metricTenants">-</strong>
+            </article>
+            <article class="metric">
+              <span>API Keys</span>
+              <strong id="metricKeys">-</strong>
+            </article>
+            <article class="metric">
+              <span>Total Tokens</span>
+              <strong id="metricTokens">-</strong>
+            </article>
+            <article class="metric">
+              <span>错误请求</span>
+              <strong id="metricErrors">-</strong>
+            </article>
+          </div>
+          <div class="section-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>最近用量</h2>
+                <button class="button ghost" id="refreshOverviewBtn" type="button">刷新</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>时间</th>
+                      <th>Tenant</th>
+                      <th>Key</th>
+                      <th>Model</th>
+                      <th>Tokens</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentUsageRows"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="panel">
+              <h2>操作入口</h2>
+              <div class="quick-actions">
+                <button class="button primary" data-jump="tenants" type="button">创建租户</button>
+                <button class="button primary" data-jump="keys" type="button">创建 Key</button>
+                <button class="button secondary" data-jump="usage" type="button">查看用量</button>
+                <a class="button ghost" href="/openapi.yaml" target="_blank" rel="noreferrer">OpenAPI</a>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="tenantsView" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>租户列表</h2>
+              <form id="createTenantForm" class="inline-form">
+                <input name="name" type="text" placeholder="tenant name" required />
+                <button class="button primary" type="submit">新增租户</button>
+              </form>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>名称</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="tenantRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section id="keysView" class="view">
+          <section class="panel">
+            <div class="panel-head stackable">
+              <div>
+                <h2>API Key 管理</h2>
+                <p class="muted">创建后只展示一次明文 secret，请立即复制。</p>
+              </div>
+              <label class="select-label">
+                租户
+                <select id="keyTenantSelect"></select>
+              </label>
+            </div>
+            <form id="createKeyForm" class="form-grid">
+              <label>
+                Key 名称
+                <input name="name" type="text" placeholder="prod-key" required />
+              </label>
+              <label>
+                过期时间
+                <input name="expires_at" type="datetime-local" />
+              </label>
+              <fieldset>
+                <legend>Scopes</legend>
+                <label class="check"><input name="scope" type="checkbox" value="chat:completions" checked /> chat:completions</label>
+                <label class="check"><input name="scope" type="checkbox" value="models:read" /> models:read</label>
+              </fieldset>
+              <button class="button primary" type="submit">创建 Key</button>
+            </form>
+            <div id="secretPanel" class="secret-panel hidden">
+              <div>
+                <span>Secret Key</span>
+                <code id="secretValue"></code>
+              </div>
+              <button id="copySecretBtn" class="button secondary" type="button">复制</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>名称</th>
+                    <th>Prefix</th>
+                    <th>Scopes</th>
+                    <th>Status</th>
+                    <th>Expires</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="keyRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section id="usageView" class="view">
+          <section class="panel">
+            <div class="panel-head stackable">
+              <h2>用量统计</h2>
+              <form id="usageFilterForm" class="inline-form wide">
+                <select name="tenant_id" id="usageTenantSelect"></select>
+                <select name="api_key_id" id="usageKeySelect"></select>
+                <input name="from" type="datetime-local" />
+                <input name="to" type="datetime-local" />
+                <button class="button primary" type="submit">查询</button>
+              </form>
+            </div>
+            <div class="summary-strip">
+              <span>Prompt <strong id="usagePrompt">0</strong></span>
+              <span>Completion <strong id="usageCompletion">0</strong></span>
+              <span>Total <strong id="usageTotal">0</strong></span>
+              <span>Success <strong id="usageSuccess">0</strong></span>
+              <span>Error <strong id="usageError">0</strong></span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>时间</th>
+                    <th>Tenant</th>
+                    <th>Key</th>
+                    <th>Model</th>
+                    <th>Prompt</th>
+                    <th>Completion</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="usageRows"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section id="playgroundView" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>OpenAI 风格代理测试</h2>
+              <button id="loadModelsBtn" class="button secondary" type="button">加载模型</button>
+            </div>
+            <form id="playgroundForm" class="playground">
+              <label>
+                API Key Secret
+                <input name="secret" type="password" placeholder="sk-ag-..." required />
+              </label>
+              <label>
+                Model
+                <input name="model" type="text" value="gpt-4o-mini" required />
+              </label>
+              <label class="full">
+                Prompt
+                <textarea name="prompt" rows="5" required>hi</textarea>
+              </label>
+              <button class="button primary" type="submit">发送请求</button>
+            </form>
+            <pre id="playgroundOutput" class="output"></pre>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="assets/app.js" defer></script>
+  </body>
+</html>

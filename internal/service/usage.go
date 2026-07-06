@@ -38,6 +38,7 @@ func NewUsageService(repo UsageRepo) *UsageService {
 }
 
 func (s *UsageService) Record(ctx context.Context, input RecordUsageInput) error {
+	// 代理请求完成后写入用量记录（成功/失败均记录）
 	if input.RequestedAt.IsZero() {
 		input.RequestedAt = s.now()
 	}

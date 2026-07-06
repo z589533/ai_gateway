@@ -11,12 +11,14 @@ import (
 	"github.com/z589533/ai_gateway/pkg/response"
 )
 
+// RateLimitConfig 定义全站 / 租户 / 单 Key 三级 QPS 阈值。
 type RateLimitConfig struct {
 	GlobalQPS float64
 	KeyQPS    float64
 	TenantQPS float64
 }
 
+// InitSentinel 启动时加载全局限流规则。
 func InitSentinel(cfg RateLimitConfig) error {
 	if err := sentinel.InitDefault(); err != nil {
 		return err
@@ -31,6 +33,7 @@ func InitSentinel(cfg RateLimitConfig) error {
 	return err
 }
 
+// SentinelRateLimit 代理请求限流：依次检查 global → tenant → key，超限返回 429。
 func SentinelRateLimit(cfg RateLimitConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		auth, ok := AuthResultFromContext(c)
@@ -66,6 +69,7 @@ func SentinelRateLimit(cfg RateLimitConfig) gin.HandlerFunc {
 	}
 }
 
+// LoadDynamicRateLimitRules 按当前租户与 Key 动态加载限流规则。
 func LoadDynamicRateLimitRules(cfg RateLimitConfig, tenantID, keyID uint64) {
 	_, _ = flow.LoadRules([]*flow.Rule{
 		{

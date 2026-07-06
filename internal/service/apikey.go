@@ -53,6 +53,7 @@ func (s *APIKeyService) WithGenerator(generator SecretGenerator) *APIKeyService 
 }
 
 func GenerateSecret() (string, error) {
+	// 生成 sk-ag- + 48 位 hex，明文仅创建时返回一次
 	buf := make([]byte, 24)
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
@@ -61,6 +62,7 @@ func GenerateSecret() (string, error) {
 }
 
 func (s *APIKeyService) Create(ctx context.Context, tenantID uint64, name string, scopes []string, expiresAt *time.Time) (*CreatedAPIKey, error) {
+	// 创建 Key：校验租户 → 生成 Secret → 存哈希与前缀 → 返回明文一次
 	if strings.TrimSpace(name) == "" {
 		return nil, InvalidInput("key name is required")
 	}

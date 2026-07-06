@@ -2,6 +2,9 @@ package proxy
 
 import "net/http"
 
+// DefaultModel 是 MVP mock 网关对外统一暴露的默认模型名称。
+const DefaultModel = "gpt5.5"
+
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`

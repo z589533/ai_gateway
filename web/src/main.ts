@@ -1,5 +1,6 @@
 import App from "./App.vue";
 import router from "./router";
+import { initStaticMenus } from "@/router/utils";
 import { setupStore } from "@/store";
 import { getPlatformConfig } from "./config";
 import { MotionPlugin } from "@vueuse/motion";
@@ -54,6 +55,8 @@ app.use(VueTippy);
 
 getPlatformConfig(app).then(async config => {
   setupStore(app);
+  // 免登录：用静态路由填充侧边栏，避免 wholeMenus 为空导致菜单一直 loading
+  initStaticMenus();
   app.use(router);
   await router.isReady();
   injectResponsiveStorage(app, config);

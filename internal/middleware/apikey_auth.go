@@ -14,6 +14,7 @@ type APIKeyAuthenticator interface {
 	Authenticate(ctx context.Context, bearerToken string, requiredScope string) (*service.AuthResult, error)
 }
 
+// APIKeyAuth 数据面鉴权中间件：解析 Bearer Token，校验 scope，将 AuthResult 写入 Context。
 func APIKeyAuth(auth APIKeyAuthenticator, requiredScope string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := bearerToken(c.GetHeader("Authorization"))

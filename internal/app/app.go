@@ -20,6 +20,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// App 聚合网关运行所需的配置、数据库、缓存、路由与日志组件。
 type App struct {
 	Config config.Config
 	DB     *gorm.DB
@@ -28,9 +29,11 @@ type App struct {
 	Logger *zap.Logger
 }
 
+// New 初始化 AI Gateway：连接 MySQL/Redis、自动迁移、装配业务服务与路由。
 func New(ctx context.Context, cfg config.Config, logger *zap.Logger) (*App, error) {
 	gin.SetMode(cfg.GinMode)
 
+	// 1. 连接 MySQL 并自动建表
 	db, err := gorm.Open(mysql.Open(cfg.MySQLDSN), &gorm.Config{})
 	if err != nil {
 		return nil, err
@@ -39,6 +42,7 @@ func New(ctx context.Context, cfg config.Config, logger *zap.Logger) (*App, erro
 		return nil, err
 	}
 
+	// 2. 连接 Redis，用于 API Key 元数据缓存
 	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr, DB: cfg.RedisDB})
 	pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
@@ -46,6 +50,7 @@ func New(ctx context.Context, cfg config.Config, logger *zap.Logger) (*App, erro
 		return nil, err
 	}
 
+	// 3. 装配仓储层与服务层
 	tenantRepo := repository.NewTenantRepository(db)
 	keyRepo := repository.NewAPIKeyRepository(db)
 	usageRepo := repository.NewUsageRepository(db)
@@ -57,6 +62,7 @@ func New(ctx context.Context, cfg config.Config, logger *zap.Logger) (*App, erro
 	usageService := service.NewUsageService(usageRepo)
 	mockProxy := proxy.NewMockProxy(cfg.MockLatency, cfg.MockFail)
 
+	// 4. 初始化 Sentinel 限流规则
 	rateLimitCfg := middleware.RateLimitConfig{
 		GlobalQPS: cfg.RateLimitGlobalQPS,
 		KeyQPS:    cfg.RateLimitKeyQPS,
@@ -66,6 +72,7 @@ func New(ctx context.Context, cfg config.Config, logger *zap.Logger) (*App, erro
 		return nil, err
 	}
 
+	// 5. 注册 HTTP 路由（管理面 + OpenAI 兼容数据面）
 	router := NewRouter(RouterDeps{
 		Config:        cfg,
 		Logger:        logger,
@@ -80,6 +87,7 @@ func New(ctx context.Context, cfg config.Config, logger *zap.Logger) (*App, erro
 	return &App{Config: cfg, DB: db, Redis: redisClient, Router: router, Logger: logger}, nil
 }
 
+// RouterDeps 是注册路由所需的 handler 与中间件依赖。
 type RouterDeps struct {
 	Config        config.Config
 	Logger        *zap.Logger
@@ -91,6 +99,7 @@ type RouterDeps struct {
 	RateLimit     middleware.RateLimitConfig
 }
 
+// NewRouter 注册全部 HTTP 路由：健康检查、OpenAPI、管理 API、OpenAI 兼容代理。
 func NewRouter(deps RouterDeps) *gin.Engine {
 	router := gin.New()
 	router.Use(middleware.CORS())
@@ -102,6 +111,7 @@ func NewRouter(deps RouterDeps) *gin.Engine {
 		c.File(filepath.Join("api", "openapi.yaml"))
 	})
 
+	// 管理面：租户 / Key / 用量，使用 Admin Token 鉴权
 	admin := router.Group("/api/v1", middleware.AdminAuth(deps.Config.AdminToken))
 	{
 		admin.POST("/tenants", deps.TenantHandler.Create)
@@ -118,6 +128,7 @@ func NewRouter(deps RouterDeps) *gin.Engine {
 		admin.GET("/usage", deps.UsageHandler.Query)
 	}
 
+	// 数据面：OpenAI 兼容接口，使用租户 API Key + scope + 限流
 	v1 := router.Group("/v1")
 	{
 		v1.POST("/chat/completions",

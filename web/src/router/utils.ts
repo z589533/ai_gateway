@@ -196,6 +196,11 @@ function handleAsyncRoutes(routeList) {
   addPathMatch();
 }
 
+/** 免登录模式：仅用静态路由初始化侧边栏菜单 */
+function initStaticMenus() {
+  handleAsyncRoutes([]);
+}
+
 /** 初始化路由（`new Promise` 写法防止在异步请求中造成无限循环）*/
 function initRouter() {
   if (getConfig()?.CachingAsyncRoutes) {
@@ -401,6 +406,7 @@ export {
   ascending,
   filterTree,
   initRouter,
+  initStaticMenus,
   getTopMenu,
   addPathMatch,
   isOneOfArray,

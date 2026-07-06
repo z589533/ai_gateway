@@ -93,7 +93,7 @@ curl -s -X POST http://localhost:18080/api/v1/tenants/1/keys \
 curl -s -X POST http://localhost:18080/v1/chat/completions \
   -H "Authorization: Bearer sk-ag-REPLACE_ME" \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}'
+  -d '{"model":"gpt5.5","messages":[{"role":"user","content":"hi"}]}'
 ```
 
 查询模型：
@@ -121,7 +121,7 @@ curl -s -X PATCH http://localhost:18080/api/v1/tenants/1/keys/1 \
 
 ## 管理台
 
-管理台已经换成 `pure-admin-thin`，不是手写静态页面。入口在 `web/`：
+管理台已经换成 `pure-admin-thin`。入口在 `web/`：
 
 | 文件 | 说明 |
 |------|------|

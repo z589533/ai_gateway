@@ -25,6 +25,7 @@ func NewTenantService(repo TenantRepo) *TenantService {
 }
 
 func (s *TenantService) Create(ctx context.Context, name string) (*model.Tenant, error) {
+	// 创建租户，默认状态为 active
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, InvalidInput("tenant name is required")

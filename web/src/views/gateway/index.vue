@@ -5,9 +5,13 @@ import {
   gatewayApi,
   getAdminToken,
   getApiBase,
+  getKeySecret,
   health,
+  isLikelyKeyPrefix,
+  saveKeySecret,
   setAdminToken,
   setApiBase,
+  DEFAULT_MODEL,
   type ApiKey,
   type Tenant,
   type UsageRecord,
@@ -34,6 +38,7 @@ const summary = ref<UsageSummary>({
 });
 const secretVisible = ref(false);
 const createdSecret = ref("");
+const playgroundLoading = ref(false);
 const playgroundOutput = ref("");
 
 const settings = reactive({
@@ -54,8 +59,9 @@ const usageFilter = reactive({
   to: ""
 });
 const playground = reactive({
+  keyId: undefined as number | undefined,
   secret: "",
-  model: "gpt-4o-mini",
+  model: DEFAULT_MODEL,
   prompt: "hi"
 });
 
@@ -76,6 +82,49 @@ const usageKeyOptions = computed(() => {
     .filter(item => !tenantId || item.tenant_id === tenantId)
     .map(item => ({ label: `${item.name} (#${item.id})`, value: item.id }));
 });
+
+const playgroundKeyOptions = computed(() =>
+  allKeys.value.map(item => ({
+    label: `${item.name} · ${item.key_prefix}…${getKeySecret(item.id) ? " ✓" : ""}`,
+    value: item.id
+  }))
+);
+
+function validatePlaygroundSecret() {
+  const secret = playground.secret.trim();
+  if (!secret) {
+    ElMessage.error("请输入 API Key Secret");
+    return false;
+  }
+  if (isLikelyKeyPrefix(secret)) {
+    ElMessage.warning(
+      "您填入的是 Prefix（列表 key_prefix 列），不能用于代理调用。请使用创建 Key 时弹窗中的完整 Secret（约 54 位），或在下方选择已保存的 Key"
+    );
+    return false;
+  }
+  return true;
+}
+
+function selectPlaygroundKey(keyId: number | undefined) {
+  playground.keyId = keyId;
+  if (!keyId) return;
+  const secret = getKeySecret(keyId);
+  if (secret) {
+    playground.secret = secret;
+    ElMessage.success("已填入本浏览器保存的 Secret");
+    return;
+  }
+  playground.secret = "";
+  ElMessage.warning("该 Key 的 Secret 未保存在本浏览器，请重新创建 Key 并在弹窗中复制");
+}
+
+function formatProxyError(error: unknown) {
+  const message = error instanceof Error ? error.message : "发送请求失败";
+  if (/invalid|api key/i.test(message)) {
+    return "API Key 无效：请使用完整 Secret，不能使用列表中的 Prefix。创建 Key 时请复制弹窗中的 sk-ag-…（约 54 位）";
+  }
+  return message;
+}
 
 async function bootstrap() {
   loading.value = true;
@@ -118,13 +167,21 @@ async function loadTenants() {
 }
 
 async function createTenant() {
-  if (!tenantForm.name.trim()) return;
-  const tenant = await gatewayApi.createTenant(tenantForm.name.trim());
-  tenantForm.name = "";
-  selectedTenantId.value = tenant.id;
-  usageFilter.tenant_id = String(tenant.id);
-  ElMessage.success("租户已创建");
-  await bootstrap();
+  const name = tenantForm.name.trim();
+  if (!name) {
+    ElMessage.warning("请输入租户名称");
+    return;
+  }
+  try {
+    const tenant = await gatewayApi.createTenant(name);
+    tenantForm.name = "";
+    selectedTenantId.value = tenant.id;
+    usageFilter.tenant_id = String(tenant.id);
+    ElMessage.success("租户已创建");
+    await bootstrap();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "创建租户失败");
+  }
 }
 
 async function toggleTenant(row: Tenant) {
@@ -156,19 +213,59 @@ async function createKey() {
     ElMessage.error("请先选择租户");
     return;
   }
-  const created = await gatewayApi.createKey(selectedTenantId.value, {
-    name: keyForm.name.trim(),
-    scopes: keyForm.scopes,
-    expires_at: toISO(keyForm.expires_at)
-  });
-  createdSecret.value = created.secret_key;
-  secretVisible.value = true;
-  keyForm.name = "";
-  keyForm.expires_at = "";
-  keyForm.scopes = ["chat:completions"];
-  ElMessage.success("API Key 已创建，Secret 只展示一次");
-  await loadKeys();
-  await loadAllKeys();
+  let name = keyForm.name.trim();
+  if (!name) {
+    try {
+      const { value } = await ElMessageBox.prompt(
+        "请输入 Key 名称（备注名，用于区分不同 Key）",
+        "创建 API Key",
+        {
+          confirmButtonText: "创建",
+          cancelButtonText: "取消",
+          inputPlaceholder: "例如 prod-key、测试 Key",
+          inputPattern: /\S+/,
+          inputErrorMessage: "Key 名称不能为空"
+        }
+      );
+      name = value.trim();
+      keyForm.name = name;
+    } catch {
+      return;
+    }
+  }
+  if (!keyForm.scopes.length) {
+    ElMessage.warning("请至少选择一个 Scope");
+    return;
+  }
+  try {
+    const created = await gatewayApi.createKey(selectedTenantId.value, {
+      name,
+      scopes: keyForm.scopes,
+      expires_at: toISO(keyForm.expires_at)
+    });
+    createdSecret.value = created.secret_key;
+    secretVisible.value = true;
+    saveKeySecret(created.id, created.secret_key);
+    playground.keyId = created.id;
+    playground.secret = created.secret_key;
+    keyForm.name = "";
+    keyForm.expires_at = "";
+    keyForm.scopes = ["chat:completions"];
+    ElMessage.success("API Key 已创建");
+    await ElMessageBox.alert(
+      `Secret Key 只展示一次，请立即复制保存：\n\n${created.secret_key}`,
+      "创建成功",
+      {
+        confirmButtonText: "我知道了",
+        type: "warning",
+        customClass: "secret-alert-box"
+      }
+    );
+    await loadKeys();
+    await loadAllKeys();
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : "创建 Key 失败");
+  }
 }
 
 async function saveKey(row: ApiKey) {
@@ -211,25 +308,36 @@ async function loadUsage() {
 }
 
 async function loadModels() {
-  if (!playground.secret.trim()) {
-    ElMessage.error("请输入 API Key Secret");
-    return;
+  if (!validatePlaygroundSecret()) return;
+  playgroundLoading.value = true;
+  try {
+    const data = await gatewayApi.listModels(playground.secret.trim());
+    playgroundOutput.value = JSON.stringify(data, null, 2);
+  } catch (error) {
+    playgroundOutput.value = "";
+    ElMessage.error(formatProxyError(error));
+  } finally {
+    playgroundLoading.value = false;
   }
-  const data = await gatewayApi.listModels(playground.secret.trim());
-  playgroundOutput.value = JSON.stringify(data, null, 2);
 }
 
 async function sendChat() {
-  if (!playground.secret.trim()) {
-    ElMessage.error("请输入 API Key Secret");
-    return;
+  if (!validatePlaygroundSecret()) return;
+  playgroundLoading.value = true;
+  try {
+    const data = await gatewayApi.chat(playground.secret.trim(), {
+      model: playground.model,
+      messages: [{ role: "user", content: playground.prompt }]
+    });
+    playgroundOutput.value = JSON.stringify(data, null, 2);
+    ElMessage.success("请求成功");
+    await loadUsage();
+  } catch (error) {
+    playgroundOutput.value = formatProxyError(error);
+    ElMessage.error(formatProxyError(error));
+  } finally {
+    playgroundLoading.value = false;
   }
-  const data = await gatewayApi.chat(playground.secret.trim(), {
-    model: playground.model,
-    messages: [{ role: "user", content: playground.prompt }]
-  });
-  playgroundOutput.value = JSON.stringify(data, null, 2);
-  await loadUsage();
 }
 
 function toISO(value?: string) {
@@ -279,7 +387,11 @@ onMounted(bootstrap);
     <el-tabs type="border-card" class="workspace">
       <el-tab-pane label="租户管理">
         <div class="toolbar">
-          <el-input v-model="tenantForm.name" placeholder="tenant name" />
+          <el-input
+            v-model="tenantForm.name"
+            placeholder="tenant name"
+            @keyup.enter="createTenant"
+          />
           <el-button type="primary" @click="createTenant">新增租户</el-button>
           <el-button @click="loadTenants">刷新</el-button>
         </div>
@@ -311,7 +423,11 @@ onMounted(bootstrap);
           <el-select v-model="selectedTenantId" placeholder="选择租户" @change="loadKeys">
             <el-option v-for="item in tenantOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
-          <el-input v-model="keyForm.name" placeholder="Key 名称" />
+          <el-input
+            v-model="keyForm.name"
+            placeholder="Key 名称（必填）"
+            @keyup.enter="createKey"
+          />
           <el-date-picker v-model="keyForm.expires_at" type="datetime" value-format="YYYY-MM-DDTHH:mm:ss" placeholder="过期时间" />
           <el-checkbox-group v-model="keyForm.scopes">
             <el-checkbox label="chat:completions" />
@@ -329,7 +445,7 @@ onMounted(bootstrap);
         <el-table :data="keys" border>
           <el-table-column prop="id" label="ID" width="80" />
           <el-table-column prop="name" label="名称" min-width="150" />
-          <el-table-column prop="key_prefix" label="Prefix" min-width="140" />
+          <el-table-column prop="key_prefix" label="Prefix（非 Secret）" min-width="160" />
           <el-table-column label="Scopes" min-width="240">
             <template #default="{ row }">
               <el-checkbox-group v-model="row.scopes">
@@ -398,13 +514,33 @@ onMounted(bootstrap);
       </el-tab-pane>
 
       <el-tab-pane label="代理测试">
-        <div class="playground">
+        <div v-loading="playgroundLoading" class="playground">
           <el-form label-position="top">
-            <el-form-item label="API Key Secret">
-              <el-input v-model="playground.secret" show-password placeholder="sk-ag-..." />
+            <el-form-item label="选择 Key（自动填入本浏览器保存的 Secret）">
+              <el-select
+                v-model="playground.keyId"
+                clearable
+                filterable
+                placeholder="从已创建的 Key 中选择"
+                @change="selectPlaygroundKey"
+              >
+                <el-option
+                  v-for="item in playgroundKeyOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="API Key Secret（完整 sk-ag-…，约 54 位）">
+              <el-input
+                v-model="playground.secret"
+                show-password
+                placeholder="创建 Key 时弹窗中的完整 Secret，不是 Prefix"
+              />
             </el-form-item>
             <el-form-item label="Model">
-              <el-input v-model="playground.model" />
+              <el-input v-model="playground.model" :placeholder="DEFAULT_MODEL" />
             </el-form-item>
             <el-form-item label="Prompt">
               <el-input v-model="playground.prompt" type="textarea" :rows="5" />

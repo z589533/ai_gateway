@@ -1,0 +1,11 @@
+.git
+.gitignore
+.tmp-pure-admin-thin
+web/node_modules
+web/dist
+node_modules
+dist
+coverage
+*.log
+tmp
+temp

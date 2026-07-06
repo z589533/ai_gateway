@@ -1,3 +1,4 @@
+// OpenAI 兼容请求/响应类型与代理层错误定义。
 package proxy
 
 import "net/http"
@@ -10,6 +11,7 @@ type Message struct {
 	Content string `json:"content"`
 }
 
+// ChatCompletionRequest OpenAI chat/completions 请求体子集。
 type ChatCompletionRequest struct {
 	Model       string    `json:"model"`
 	Messages    []Message `json:"messages"`
@@ -34,6 +36,7 @@ type Choice struct {
 	FinishReason string  `json:"finish_reason"`
 }
 
+// Usage token 用量，用于写入 usage_records。
 type Usage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
@@ -52,6 +55,7 @@ type ModelListResponse struct {
 	Data   []Model `json:"data"`
 }
 
+// Error 代理层业务错误，携带 HTTP 状态码与 OpenAI 风格 code。
 type Error struct {
 	Status  int
 	Code    string

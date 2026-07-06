@@ -1,3 +1,4 @@
+// 应用配置：从环境变量读取，提供 compose 与本地开发的默认值。
 package config
 
 import (
@@ -6,22 +7,24 @@ import (
 	"time"
 )
 
+// Config 聚合网关运行所需的全部配置项。
 type Config struct {
-	AppPort            string
-	AdminToken         string
-	MySQLDSN           string
-	RedisAddr          string
-	RedisDB            int
-	ProxyTimeout       time.Duration
-	MockLatency        time.Duration
-	MockFail           bool
-	KeyCacheTTL        time.Duration
-	RateLimitGlobalQPS float64
-	RateLimitKeyQPS    float64
-	RateLimitTenantQPS float64
-	GinMode            string
+	AppPort            string        // HTTP 监听端口
+	AdminToken         string        // 管理面 Bearer Token
+	MySQLDSN           string        // GORM MySQL 连接串
+	RedisAddr          string        // Redis 地址
+	RedisDB            int           // Redis 库编号
+	ProxyTimeout       time.Duration // 代理请求超时，超时映射 504
+	MockLatency        time.Duration // Mock 上游延迟，用于压测/演示 504
+	MockFail           bool          // 强制 Mock 返回 502
+	KeyCacheTTL        time.Duration // API Key 鉴权缓存 TTL
+	RateLimitGlobalQPS float64       // 全站 QPS 限流
+	RateLimitKeyQPS    float64       // 单 Key QPS 限流
+	RateLimitTenantQPS float64       // 单租户 QPS 限流
+	GinMode            string        // Gin 运行模式：debug/release
 }
 
+// Load 读取环境变量；未设置时使用 MVP 默认值。
 func Load() Config {
 	return Config{
 		AppPort:            getEnv("APP_PORT", "8080"),

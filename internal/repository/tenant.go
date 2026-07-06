@@ -1,3 +1,4 @@
+// 租户 GORM 仓储。
 package repository
 
 import (

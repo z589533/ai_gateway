@@ -1,3 +1,4 @@
+// 用量记录 GORM 仓储：写入与条件查询 + SQL 聚合。
 package repository
 
 import (
@@ -8,6 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// UsageQuery 用量查询过滤条件。
 type UsageQuery struct {
 	TenantID uint64
 	APIKeyID uint64
@@ -29,6 +31,7 @@ func (r *UsageRepository) Create(ctx context.Context, usage *model.UsageRecord) 
 	return r.db.WithContext(ctx).Create(usage).Error
 }
 
+// Query 返回分页明细、总数与 summary（token 求和 + success/error 计数）。
 func (r *UsageRepository) Query(ctx context.Context, q UsageQuery) ([]model.UsageRecord, int64, model.UsageSummary, error) {
 	query := r.db.WithContext(ctx).Model(&model.UsageRecord{})
 	query = applyUsageQuery(query, q)

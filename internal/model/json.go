@@ -1,3 +1,4 @@
+// StringList 用于 GORM JSON 列存储 scope 字符串数组。
 package model
 
 import (

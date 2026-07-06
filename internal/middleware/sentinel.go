@@ -1,3 +1,4 @@
+// Sentinel 限流中间件：全站 / 租户 / 单 Key 三级 QPS 控制。
 package middleware
 
 import (

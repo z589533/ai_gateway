@@ -1,3 +1,4 @@
+// 请求日志中间件：生成 request_id 并记录延迟、状态码及鉴权上下文。
 package middleware
 
 import (
@@ -10,6 +11,7 @@ import (
 
 const RequestIDHeader = "X-Request-ID"
 
+// RequestLogger 为每个请求分配 X-Request-ID，请求结束后输出结构化访问日志。
 func RequestLogger(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()

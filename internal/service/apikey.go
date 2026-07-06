@@ -1,3 +1,4 @@
+// API Key 业务逻辑：生成、哈希存储、缓存失效。
 package service
 
 import (
@@ -15,8 +16,10 @@ import (
 	"gorm.io/gorm"
 )
 
+// SecretGenerator 可注入的 Secret 生成器，便于单测固定输出。
 type SecretGenerator func() (string, error)
 
+// APIKeyService Key CRUD 与缓存失效。
 type APIKeyService struct {
 	tenantRepo TenantRepo
 	keyRepo    APIKeyRepo
@@ -25,11 +28,13 @@ type APIKeyService struct {
 	generator  SecretGenerator
 }
 
+// CreatedAPIKey 创建响应：嵌入 Key 实体 + 一次性明文 secret。
 type CreatedAPIKey struct {
 	model.APIKey
 	SecretKey string `json:"secret_key"`
 }
 
+// APIKeyList 分页 Key 列表（无明文）。
 type APIKeyList struct {
 	Items    []model.APIKey `json:"items"`
 	Total    int64          `json:"total"`
@@ -52,8 +57,8 @@ func (s *APIKeyService) WithGenerator(generator SecretGenerator) *APIKeyService 
 	return s
 }
 
+// GenerateSecret 生成 sk-ag- + 48 位 hex，明文仅创建时返回一次。
 func GenerateSecret() (string, error) {
-	// 生成 sk-ag- + 48 位 hex，明文仅创建时返回一次
 	buf := make([]byte, 24)
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
@@ -62,7 +67,6 @@ func GenerateSecret() (string, error) {
 }
 
 func (s *APIKeyService) Create(ctx context.Context, tenantID uint64, name string, scopes []string, expiresAt *time.Time) (*CreatedAPIKey, error) {
-	// 创建 Key：校验租户 → 生成 Secret → 存哈希与前缀 → 返回明文一次
 	if strings.TrimSpace(name) == "" {
 		return nil, InvalidInput("key name is required")
 	}
@@ -110,6 +114,7 @@ func (s *APIKeyService) Get(ctx context.Context, tenantID, keyID uint64) (*model
 	return key, err
 }
 
+// Update 变更 scope/status/expires_at 后主动删除 Redis 缓存。
 func (s *APIKeyService) Update(ctx context.Context, tenantID, keyID uint64, scopes *[]string, status *int8, expiresAt **time.Time) (*model.APIKey, error) {
 	key, err := s.Get(ctx, tenantID, keyID)
 	if err != nil {
@@ -134,6 +139,7 @@ func (s *APIKeyService) Update(ctx context.Context, tenantID, keyID uint64, scop
 	return key, nil
 }
 
+// Delete 软删除 Key，使鉴权立即失效并保留用量历史。
 func (s *APIKeyService) Delete(ctx context.Context, tenantID, keyID uint64) error {
 	key, err := s.Get(ctx, tenantID, keyID)
 	if err != nil {

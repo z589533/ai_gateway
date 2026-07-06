@@ -1,3 +1,4 @@
+// Panic 恢复中间件：捕获 handler panic 并返回 500，避免进程崩溃。
 package middleware
 
 import (
@@ -8,6 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Recovery 将 panic 转为 JSON 500 响应并记录错误日志。
 func Recovery(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {

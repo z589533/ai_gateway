@@ -1,3 +1,4 @@
+// 用量查询 HTTP 处理器：对应 GET /api/v1/usage。
 package handler
 
 import (
@@ -11,10 +12,12 @@ import (
 	"github.com/z589533/ai_gateway/pkg/response"
 )
 
+// UsageService 用量业务接口。
 type UsageService interface {
 	Query(ctx context.Context, q repository.UsageQuery) (*service.UsageList, error)
 }
 
+// UsageHandler 按租户、Key、时间范围查询用量明细与汇总。
 type UsageHandler struct {
 	service UsageService
 }
@@ -23,6 +26,7 @@ func NewUsageHandler(service UsageService) *UsageHandler {
 	return &UsageHandler{service: service}
 }
 
+// Query 支持 tenant_id、api_key_id、from、to 过滤，并返回 summary 聚合。
 func (h *UsageHandler) Query(c *gin.Context) {
 	page, pageSize := parsePage(c)
 	query := repository.UsageQuery{

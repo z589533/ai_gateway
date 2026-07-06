@@ -1,3 +1,4 @@
+// API Key 鉴权缓存：Redis 存储 Key 元数据，降低 MySQL 读压力。
 package service
 
 import (
@@ -11,6 +12,7 @@ import (
 
 var ErrCacheMiss = errors.New("cache miss")
 
+// CachedKey 鉴权所需的最小 Key 快照，不含明文 secret。
 type CachedKey struct {
 	TenantID     uint64     `json:"tenant_id"`
 	TenantStatus int8       `json:"tenant_status"`
@@ -20,6 +22,7 @@ type CachedKey struct {
 	ExpiresAt    *time.Time `json:"expires_at"`
 }
 
+// RedisKeyCache 基于 Redis 的 Key 缓存实现。
 type RedisKeyCache struct {
 	client *redis.Client
 }

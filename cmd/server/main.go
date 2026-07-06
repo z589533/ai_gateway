@@ -1,3 +1,4 @@
+// AI Gateway 服务入口：加载配置、初始化依赖并启动 HTTP 服务。
 package main
 
 import (

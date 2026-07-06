@@ -1,3 +1,4 @@
+// 租户业务逻辑。
 package service
 
 import (
@@ -9,10 +10,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// TenantService 租户 CRUD 服务。
 type TenantService struct {
 	repo TenantRepo
 }
 
+// TenantList 分页租户列表响应。
 type TenantList struct {
 	Items    []model.Tenant `json:"items"`
 	Total    int64          `json:"total"`
@@ -25,7 +28,6 @@ func NewTenantService(repo TenantRepo) *TenantService {
 }
 
 func (s *TenantService) Create(ctx context.Context, name string) (*model.Tenant, error) {
-	// 创建租户，默认状态为 active
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, InvalidInput("tenant name is required")
@@ -54,6 +56,7 @@ func (s *TenantService) Get(ctx context.Context, id uint64) (*model.Tenant, erro
 	return tenant, err
 }
 
+// Update 支持部分更新：name 和/或 status（active/inactive）。
 func (s *TenantService) Update(ctx context.Context, id uint64, name *string, status *int8) (*model.Tenant, error) {
 	tenant, err := s.Get(ctx, id)
 	if err != nil {
@@ -78,6 +81,7 @@ func (s *TenantService) Update(ctx context.Context, id uint64, name *string, sta
 	return tenant, nil
 }
 
+// normalizePage 统一分页默认值与上限。
 func normalizePage(page, pageSize int) (int, int) {
 	if page <= 0 {
 		page = 1
@@ -91,6 +95,7 @@ func normalizePage(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
+// mapWriteError 将 MySQL 唯一约束冲突映射为 409。
 func mapWriteError(err error, conflictMessage string) error {
 	if err == nil {
 		return nil

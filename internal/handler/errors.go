@@ -1,3 +1,4 @@
+// 管理面统一错误响应封装。
 package handler
 
 import (
@@ -9,6 +10,7 @@ import (
 	"github.com/z589533/ai_gateway/pkg/response"
 )
 
+// writeManagementError 将 service.AppError 映射为 {code,message,data} envelope。
 func writeManagementError(c *gin.Context, err error) {
 	var appErr *service.AppError
 	if errors.As(err, &appErr) {

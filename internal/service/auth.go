@@ -1,3 +1,4 @@
+// AuthService：数据面 API Key 鉴权（哈希查库、Redis 缓存、scope/状态校验）。
 package service
 
 import (

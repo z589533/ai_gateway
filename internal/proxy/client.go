@@ -1,3 +1,4 @@
+// HTTP 上游代理客户端：解码真实上游响应（MVP 主要使用 MockProxy）。
 package proxy
 
 import (
@@ -7,6 +8,7 @@ import (
 	"time"
 )
 
+// HTTPClientProxy 通过 HTTP 调用外部 LLM 上游并解码 JSON 响应。
 type HTTPClientProxy struct {
 	Client  *http.Client
 	BaseURL string
@@ -19,6 +21,7 @@ func NewHTTPClientProxy(baseURL string, timeout time.Duration) *HTTPClientProxy 
 	}
 }
 
+// DecodeResponse 解析上游 HTTP 响应：5xx → 502，超时/解码失败 → 502/504。
 func (p *HTTPClientProxy) DecodeResponse(ctx context.Context, resp *http.Response) (*ChatCompletionResponse, error) {
 	if resp.StatusCode >= http.StatusInternalServerError {
 		return nil, BadGateway("upstream returned 5xx")

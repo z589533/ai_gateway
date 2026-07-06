@@ -3,10 +3,11 @@ package model
 import "time"
 
 const (
-	UsageStatusSuccess = "success"
-	UsageStatusError   = "error"
+	UsageStatusSuccess = "success" // 代理成功
+	UsageStatusError   = "error"   // 已识别 Key 但代理失败（502/504 等）
 )
 
+// UsageRecord 单次代理调用的用量快照。
 type UsageRecord struct {
 	ID               uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
 	TenantID         uint64    `gorm:"index;not null" json:"tenant_id"`
@@ -25,6 +26,7 @@ func (UsageRecord) TableName() string {
 	return "usage_records"
 }
 
+// UsageSummary 查询结果的聚合统计。
 type UsageSummary struct {
 	PromptTokens     int64 `json:"prompt_tokens"`
 	CompletionTokens int64 `json:"completion_tokens"`

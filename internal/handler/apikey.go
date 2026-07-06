@@ -1,3 +1,4 @@
+// API Key 管理 HTTP 处理器：对应 /api/v1/tenants/:tenant_id/keys 路由。
 package handler
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/z589533/ai_gateway/pkg/response"
 )
 
+// APIKeyService Key 业务接口。
 type APIKeyService interface {
 	Create(ctx context.Context, tenantID uint64, name string, scopes []string, expiresAt *time.Time) (*service.CreatedAPIKey, error)
 	List(ctx context.Context, tenantID uint64, page, pageSize int) (*service.APIKeyList, error)
@@ -20,6 +22,7 @@ type APIKeyService interface {
 	Delete(ctx context.Context, tenantID, keyID uint64) error
 }
 
+// APIKeyHandler 处理 Key CRUD；创建时返回一次性明文 secret。
 type APIKeyHandler struct {
 	service APIKeyService
 }
@@ -40,6 +43,7 @@ type updateAPIKeyRequest struct {
 	ExpiresAt **time.Time
 }
 
+// Create 为指定租户创建 Key，响应含 secret_key（仅此次返回）。
 func (h *APIKeyHandler) Create(c *gin.Context) {
 	tenantID, ok := parseUint64Param(c, "tenant_id")
 	if !ok {
@@ -63,6 +67,7 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 	response.Created(c, key)
 }
 
+// List 分页列出某租户下的 Key（不含明文 secret）。
 func (h *APIKeyHandler) List(c *gin.Context) {
 	tenantID, ok := parseUint64Param(c, "tenant_id")
 	if !ok {
@@ -78,6 +83,7 @@ func (h *APIKeyHandler) List(c *gin.Context) {
 	response.OK(c, result)
 }
 
+// Get 查询单个 Key 详情。
 func (h *APIKeyHandler) Get(c *gin.Context) {
 	tenantID, keyID, ok := keyParams(c)
 	if !ok {
@@ -91,6 +97,7 @@ func (h *APIKeyHandler) Get(c *gin.Context) {
 	response.OK(c, key)
 }
 
+// Update 更新 scope、状态或过期时间；更新后使 Redis 缓存失效。
 func (h *APIKeyHandler) Update(c *gin.Context) {
 	tenantID, keyID, ok := keyParams(c)
 	if !ok {
@@ -109,6 +116,7 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 	response.OK(c, key)
 }
 
+// Delete 软删除 Key，保留历史用量引用。
 func (h *APIKeyHandler) Delete(c *gin.Context) {
 	tenantID, keyID, ok := keyParams(c)
 	if !ok {
@@ -135,6 +143,7 @@ func keyParams(c *gin.Context) (uint64, uint64, bool) {
 	return tenantID, keyID, true
 }
 
+// parseUpdateAPIKeyRequest 手动解析 PATCH 体，支持 expires_at 显式传 null 表示永不过期。
 func parseUpdateAPIKeyRequest(c *gin.Context) (*updateAPIKeyRequest, error) {
 	var raw map[string]json.RawMessage
 	if err := c.ShouldBindJSON(&raw); err != nil {

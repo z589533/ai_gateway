@@ -1,0 +1,11 @@
+app_port: 8080
+admin_token: admin-dev-token
+mysql_dsn: root:root@tcp(localhost:3306)/ai_gateway?charset=utf8mb4&parseTime=True&loc=Local
+redis_addr: localhost:6379
+proxy_timeout_sec: 30
+mock_latency_ms: 0
+mock_fail: false
+key_cache_ttl_sec: 300
+rate_limit_global_qps: 100
+rate_limit_key_qps: 20
+rate_limit_tenant_qps: 50

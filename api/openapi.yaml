@@ -1,0 +1,638 @@
+openapi: 3.0.3
+info:
+  title: AI Gateway MVP API
+  version: 1.0.0
+  description: Tenant API key management, OpenAI-style mock proxy, and usage tracking.
+servers:
+  - url: http://localhost:8080
+security:
+  - AdminBearerAuth: []
+paths:
+  /health:
+    get:
+      summary: Health check
+      security: []
+      responses:
+        "200":
+          description: OK
+  /openapi.yaml:
+    get:
+      summary: OpenAPI YAML
+      security: []
+      responses:
+        "200":
+          description: YAML spec
+  /api/v1/tenants:
+    post:
+      summary: Create tenant
+      security:
+        - AdminBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantEnvelope"
+        "400":
+          $ref: "#/components/responses/ManagementError"
+        "401":
+          $ref: "#/components/responses/ManagementError"
+        "409":
+          $ref: "#/components/responses/ManagementError"
+    get:
+      summary: List tenants
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Tenant list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantListEnvelope"
+        "401":
+          $ref: "#/components/responses/ManagementError"
+  /api/v1/tenants/{tenant_id}:
+    get:
+      summary: Get tenant
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: Tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantEnvelope"
+        "404":
+          $ref: "#/components/responses/ManagementError"
+    patch:
+      summary: Update tenant
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenantRequest"
+      responses:
+        "200":
+          description: Updated tenant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantEnvelope"
+        "400":
+          $ref: "#/components/responses/ManagementError"
+        "404":
+          $ref: "#/components/responses/ManagementError"
+  /api/v1/tenants/{tenant_id}/keys:
+    post:
+      summary: Create API key
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAPIKeyRequest"
+      responses:
+        "201":
+          description: Created API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedAPIKeyEnvelope"
+        "400":
+          $ref: "#/components/responses/ManagementError"
+        "404":
+          $ref: "#/components/responses/ManagementError"
+    get:
+      summary: List API keys
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: API key list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKeyListEnvelope"
+  /api/v1/tenants/{tenant_id}/keys/{key_id}:
+    get:
+      summary: Get API key
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+        - $ref: "#/components/parameters/APIKeyID"
+      responses:
+        "200":
+          description: API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKeyEnvelope"
+        "404":
+          $ref: "#/components/responses/ManagementError"
+    patch:
+      summary: Update API key
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+        - $ref: "#/components/parameters/APIKeyID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAPIKeyRequest"
+      responses:
+        "200":
+          description: Updated API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIKeyEnvelope"
+        "400":
+          $ref: "#/components/responses/ManagementError"
+        "404":
+          $ref: "#/components/responses/ManagementError"
+    delete:
+      summary: Soft-delete API key
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+        - $ref: "#/components/parameters/APIKeyID"
+      responses:
+        "200":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/ManagementError"
+  /api/v1/usage:
+    get:
+      summary: Query usage
+      security:
+        - AdminBearerAuth: []
+      parameters:
+        - name: tenant_id
+          in: query
+          schema:
+            type: integer
+            format: uint64
+        - name: api_key_id
+          in: query
+          schema:
+            type: integer
+            format: uint64
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Usage list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageListEnvelope"
+  /v1/chat/completions:
+    post:
+      summary: OpenAI-style chat completions
+      security:
+        - GatewayAPIKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+      responses:
+        "200":
+          description: Chat completion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+        "400":
+          $ref: "#/components/responses/OpenAIError"
+        "401":
+          $ref: "#/components/responses/OpenAIError"
+        "403":
+          $ref: "#/components/responses/OpenAIError"
+        "429":
+          $ref: "#/components/responses/OpenAIError"
+        "502":
+          $ref: "#/components/responses/OpenAIError"
+        "504":
+          $ref: "#/components/responses/OpenAIError"
+  /v1/models:
+    get:
+      summary: List mock models
+      security:
+        - GatewayAPIKeyAuth: []
+      responses:
+        "200":
+          description: Model list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelListResponse"
+        "401":
+          $ref: "#/components/responses/OpenAIError"
+        "403":
+          $ref: "#/components/responses/OpenAIError"
+components:
+  securitySchemes:
+    AdminBearerAuth:
+      type: http
+      scheme: bearer
+    GatewayAPIKeyAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    TenantID:
+      name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: uint64
+    APIKeyID:
+      name: key_id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: uint64
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        default: 20
+        maximum: 100
+  responses:
+    ManagementError:
+      description: Management API error envelope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ManagementEnvelope"
+    OpenAIError:
+      description: OpenAI-style error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    ManagementEnvelope:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          nullable: true
+    CreateTenantRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+    UpdateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: integer
+          enum: [0, 1]
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: uint64
+        name:
+          type: string
+        status:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TenantEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ManagementEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/Tenant"
+    TenantListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ManagementEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Tenant"
+                total:
+                  type: integer
+                page:
+                  type: integer
+                page_size:
+                  type: integer
+    CreateAPIKeyRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+          default: [chat:completions]
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+    UpdateAPIKeyRequest:
+      type: object
+      properties:
+        scopes:
+          type: array
+          items:
+            type: string
+        status:
+          type: integer
+          enum: [0, 1]
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+    APIKey:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: uint64
+        tenant_id:
+          type: integer
+          format: uint64
+        name:
+          type: string
+        key_prefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        status:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreatedAPIKey:
+      allOf:
+        - $ref: "#/components/schemas/APIKey"
+        - type: object
+          properties:
+            secret_key:
+              type: string
+    APIKeyEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ManagementEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/APIKey"
+    CreatedAPIKeyEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ManagementEnvelope"
+        - type: object
+          properties:
+            data:
+              $ref: "#/components/schemas/CreatedAPIKey"
+    APIKeyListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ManagementEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/APIKey"
+                total:
+                  type: integer
+                page:
+                  type: integer
+                page_size:
+                  type: integer
+    UsageRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: uint64
+        tenant_id:
+          type: integer
+          format: uint64
+        api_key_id:
+          type: integer
+          format: uint64
+        model:
+          type: string
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+        latency_ms:
+          type: integer
+        status:
+          type: string
+        requested_at:
+          type: string
+          format: date-time
+    UsageSummary:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+        success_count:
+          type: integer
+        error_count:
+          type: integer
+    UsageListEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/ManagementEnvelope"
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/UsageRecord"
+                total:
+                  type: integer
+                page:
+                  type: integer
+                page_size:
+                  type: integer
+                summary:
+                  $ref: "#/components/schemas/UsageSummary"
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant]
+        content:
+          type: string
+    ChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        stream:
+          type: boolean
+          description: stream=true returns 400 stream_not_supported in this MVP.
+        temperature:
+          type: number
+        top_p:
+          type: number
+        max_tokens:
+          type: integer
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              message:
+                $ref: "#/components/schemas/ChatMessage"
+              finish_reason:
+                type: string
+        usage:
+          type: object
+          properties:
+            prompt_tokens:
+              type: integer
+            completion_tokens:
+              type: integer
+            total_tokens:
+              type: integer
+    ModelListResponse:
+      type: object
+      properties:
+        object:
+          type: string
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              object:
+                type: string
+              created:
+                type: integer
+              owned_by:
+                type: string
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+            type:
+              type: string
+            code:
+              type: string

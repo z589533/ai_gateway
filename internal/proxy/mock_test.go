@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+func TestMockProxyModels(t *testing.T) {
+	p := NewMockProxy(0, false)
+	models := p.Models()
+	if len(models.Data) != 1 || models.Data[0].ID != DefaultModel {
+		t.Fatalf("models = %+v, want %s", models.Data, DefaultModel)
+	}
+}
+
 func TestMockProxyChatSuccess(t *testing.T) {
 	p := NewMockProxy(0, false)
 	p.Now = func() time.Time { return time.Unix(100, 0) }

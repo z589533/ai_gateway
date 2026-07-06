@@ -22,6 +22,7 @@ test("gateway api wraps required backend endpoints", () => {
   for (const endpoint of ["/api/v1/tenants", "/keys", "/api/v1/usage", "/v1/models", "/v1/chat/completions"]) {
     assert.ok(api.includes(endpoint), `missing ${endpoint}`);
   }
+  assert.match(api, /DEFAULT_MODEL = "gpt5\.5"/);
 });
 
 test("nginx proxies management and gateway routes", () => {

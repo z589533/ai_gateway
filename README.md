@@ -2,6 +2,8 @@
 
 这是一个面试交付用的 AI Gateway MVP，后端使用 Go + Gin + GORM + MySQL + Redis，实现租户、API Key、OpenAI 风格代理、用量追踪和 OpenAPI 文档；管理台使用 `pure-admin-thin`（Vue 3 + Vite + Element Plus）实现，并由 nginx 托管。
 
+**GitHub 仓库：** https://github.com/z589533/ai_gateway
+
 ## 功能范围
 
 | 模块 | 说明 |
@@ -119,6 +121,54 @@ curl -s -X PATCH http://localhost:18080/api/v1/tenants/1/keys/1 \
   -d '{"status":0}'
 ```
 
+无效 Key 验证 401：
+
+```bash
+curl -s -X POST http://localhost:18080/v1/chat/completions \
+  -H "Authorization: Bearer sk-ag-invalid" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt5.5","messages":[{"role":"user","content":"hi"}]}'
+```
+
+越权 Key 验证 403（创建时 scopes 仅含 `models:read`，调用 chat）：
+
+```bash
+curl -s -X POST http://localhost:18080/api/v1/tenants/1/keys \
+  -H "Authorization: Bearer admin-dev-token" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"readonly","scopes":["models:read"]}'
+
+curl -s -X POST http://localhost:18080/v1/chat/completions \
+  -H "Authorization: Bearer <上一步 secret_key>" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt5.5","messages":[{"role":"user","content":"hi"}]}'
+```
+
+过期 Key 验证 403（`expires_at` 设为过去时间）：
+
+```bash
+curl -s -X POST http://localhost:18080/api/v1/tenants/1/keys \
+  -H "Authorization: Bearer admin-dev-token" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"expired","scopes":["chat:completions"],"expires_at":"2020-01-01T00:00:00Z"}'
+```
+
+`stream=true` 验证 400：
+
+```bash
+curl -s -X POST http://localhost:18080/v1/chat/completions \
+  -H "Authorization: Bearer sk-ag-REPLACE_ME" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"gpt5.5","messages":[{"role":"user","content":"hi"}],"stream":true}'
+```
+
+Mock 502 / 504 验证（需重启 compose 并设置环境变量）：
+
+```bash
+# 502：MOCK_FAIL=true
+# 504：MOCK_LATENCY_MS=35000 且 PROXY_TIMEOUT_SEC=30
+```
+
 ## 管理台
 
 管理台已经换成 `pure-admin-thin`。入口在 `web/`：
@@ -169,7 +219,7 @@ docker compose config
 
 ## 设计决策
 
-- Scope 使用字符串列表，例如 `chat:completions`、`models:read`，比 bitmask 更直观，后续扩展不需要改表结构。
+- **Scope 建模**：字符串资源列表，例如 `chat:completions`（聊天代理）、`models:read`（模型列表）；Key 不含所需 scope 时返回 403；空 scopes 视为无权限；创建 Key 未传 scopes 时默认 `["chat:completions"]`。比 bitmask 更直观，后续扩展不需要改表结构。
 - API Key 明文只在创建时返回一次，数据库只保存 SHA-256 hash 和展示前缀。
 - Key 删除采用软删除，避免历史 usage 失去引用。
 - 代理层当前只做 mock，不调用真实 OpenAI 或其他模型厂商。
@@ -184,3 +234,10 @@ docker compose config
 - Token 数是估算值，不是 tiktoken 精确计算。
 - 限流是单进程内存规则，多实例不共享配额。
 - 管理台没有登录和 RBAC，Admin Token 存在 localStorage，仅限内网 / Demo。
+- Mock 默认模型名为 **gpt5.5**，`/v1/models` 与代理测试页均使用该名称。
+
+## 提交说明
+
+1. 代码已推送至 GitHub：https://github.com/z589533/ai_gateway
+2. 复现步骤：`docker compose up --build`，按上文 curl 自测清单逐项验证
+3. 管理台：http://localhost:8848（免登录，默认 Admin Token 为 `admin-dev-token`）

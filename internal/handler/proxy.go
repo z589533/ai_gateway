@@ -98,5 +98,9 @@ func (h *ProxyHandler) writeProxyError(c *gin.Context, err error) {
 		response.OpenAIErrorJSON(c, proxyErr.Status, proxyErr.Code, proxyErr.Message)
 		return
 	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		response.OpenAIErrorJSON(c, http.StatusGatewayTimeout, "gateway_timeout", "upstream request timed out")
+		return
+	}
 	response.OpenAIErrorJSON(c, http.StatusBadGateway, "bad_gateway", "proxy request failed")
 }

@@ -16,7 +16,21 @@ func TestOpenAPIValid(t *testing.T) {
 	if err := doc.Validate(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if doc.Paths.Value("/v1/chat/completions") == nil {
-		t.Fatal("missing chat completions path")
+
+	requiredPaths := []string{
+		"/health",
+		"/openapi.yaml",
+		"/api/v1/tenants",
+		"/api/v1/tenants/{tenant_id}",
+		"/api/v1/tenants/{tenant_id}/keys",
+		"/api/v1/tenants/{tenant_id}/keys/{key_id}",
+		"/api/v1/usage",
+		"/v1/chat/completions",
+		"/v1/models",
+	}
+	for _, path := range requiredPaths {
+		if doc.Paths.Value(path) == nil {
+			t.Fatalf("missing path %s", path)
+		}
 	}
 }
